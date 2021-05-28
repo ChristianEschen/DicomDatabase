@@ -1,0 +1,5 @@
+database/
+graveyard/
+.vscode
+__pycache__
+test_data/
