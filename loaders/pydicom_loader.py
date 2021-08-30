@@ -4,6 +4,7 @@ import numpy as np
 import os
 import argparse
 import time
+from pathlib import Path
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -65,17 +66,7 @@ class pydicom_loader():
             df = pd.read_csv(csv_list[i])
             dcm_list = df['FileName'].tolist()
             self.meta_cols = {col: [] for col in self.allowed_meta_cols_fields}
-            for dcm_file_name in dcm_list:
-                try:
-                    dcm = pydicom.dcmread(dcm_file_name)
-                    setattr(dcm, 'DcmPathFlatten', dcm_file_name)
-                    for col in self.meta_cols:
-                        if hasattr(dcm, col):
-                            self.meta_cols[col].append(str(getattr(dcm, col)))
-                        else:
-                            self.meta_cols[col].append(np.nan)
-                except Exception as ex:
-                    print('Exception occured:', ex, 'in dcm-file:', dcm_file_name)
+            for dcm_file_name in dcm_list:from pathlib import Path
             df_data = pd.DataFrame.from_dict(self.meta_cols)
             df_data = self.create_recursive_paths_pydicom(df_data)
             df_data = self.setTimeStamp(df_data)
@@ -108,6 +99,18 @@ class pydicom_loader():
                     lambda x: '{0:0>6}'.format(x)), format='%Y%m%d%H%M%S',
                 errors='coerce')
         return df
+
+    def writeDcmFiles(self, df):
+            for i in range(0, len(df)):
+                row = df.iloc[i]
+                dcm = pydicom.dcmread(row['DcmPathFlatten'])
+                dcm['PatientID'].value = row['bth_pid']
+                dcm.save_as(row['OutputPath'])
+
+    def setOutputPath(self, df, output_path):
+        df['OutputPath'] = df['DcmPathFlatten'].apply(lambda x:  os.path.join(output_path, Path(x).name))
+        return df
+
 
 
 if __name__ == '__main__':

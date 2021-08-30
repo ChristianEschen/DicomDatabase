@@ -1,4 +1,3 @@
-from loaders.pydicom_loader import pydicom_loader
 from BaseDcmLoader import BaseDcmLoader
 import os
 import numpy as np
@@ -245,7 +244,7 @@ if __name__ == '__main__':
     preDcmLoader.insertDatabase(df)
     df = preDcmLoader.getDataFromDatabase(query="SELECT RecursiveFilePath FROM DICOM_TABLE")
 
-    rmtree(temp_dir)
+    #rmtree(temp_dir)
     print('done buiding database')
     end = time.time()
     print('time elapsed:', end - start_time)
