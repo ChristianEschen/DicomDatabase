@@ -66,13 +66,13 @@ class pydicom_loader():
             df = pd.read_csv(csv_list[i])
             dcm_list = df['FileName'].tolist()
             self.meta_cols = {col: [] for col in self.allowed_meta_cols_fields}
-            for dcm_file_name in dcm_list:from pathlib import Path
-            df_data = pd.DataFrame.from_dict(self.meta_cols)
-            df_data = self.create_recursive_paths_pydicom(df_data)
-            df_data = self.setTimeStamp(df_data)
-            df_data = df_data.astype(str)
-            # save data
-            df_data.to_csv(csv_dcm_list[i], index=False)
+            for dcm_file_name in dcm_list:
+                df_data = pd.DataFrame.from_dict(self.meta_cols)
+                df_data = self.create_recursive_paths_pydicom(df_data)
+                df_data = self.setTimeStamp(df_data)
+                df_data = df_data.astype(str)
+                # save data
+                df_data.to_csv(csv_dcm_list[i], index=False)
             return df_data
 
     def create_recursive_paths_pydicom(self, df):
@@ -85,10 +85,12 @@ class pydicom_loader():
         return df
 
     def setTimeStamp(self, df):
-        df['TimeStamp'] = df['StudyTime']
+        df['TimeStamp'] = df['SeriesTime']
         df.replace({'TimeStamp': {'': 0}}, inplace=True)
-        df['DateStamp'] = df['StudyDate']
+        df.replace({'TimeStamp': {np.nan: 0}}, inplace=True)
+        df['DateStamp'] = df['SeriesDate']
         df.replace({'DateStamp': {'': 0}}, inplace=True)
+        df.replace({'DateStamp': {np.nan: 0}}, inplace=True)
         df['TimeStamp'] = \
             pd.to_datetime(
                 df['DateStamp'].astype(float).astype(int).
