@@ -29,10 +29,12 @@ class sitk_loader():
             }
 
     def setTimeStampByTag(self, df):
-        df['TimeStamp'] = df['0008|0030']
+        df['TimeStamp'] = df['0008|0031']
         df.replace({'TimeStamp': {'': 0}}, inplace=True)
-        df['DateStamp'] = df['0008|0020']
+        df.replace({'TimeStamp': {np.nan: 0}}, inplace=True)
+        df['DateStamp'] = df['0008|0021']
         df.replace({'DateStamp': {'': 0}}, inplace=True)
+        df.replace({'DateStamp': {np.nan: 0}}, inplace=True)
         df['TimeStamp'] = \
             pd.to_datetime(
                 df['DateStamp'].astype(float).astype(int).
