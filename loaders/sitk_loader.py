@@ -3,6 +3,7 @@ import SimpleITK as sitk
 import numpy as np
 import os
 import argparse
+import re
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -18,7 +19,8 @@ parser.add_argument(
 
 
 class sitk_loader():
-    def __init__(self, recursive_folder):
+    def __init__(self, recursive_folder, input_folder):
+        self.input_folder = input_folder
         self.recursive_folder = recursive_folder
         self.allowed_meta_cols_fields = {
             '0010|0020': 'PatientID',
@@ -43,6 +45,15 @@ class sitk_loader():
                     lambda x: '{0:0>6}'.format(x)), format='%Y%m%d%H%M%S',
                 errors='coerce')
         return df
+
+    def getRelateivePath(self, dcm_list):
+        self.base_path = os.path.basename(os.path.normpath(self.input_folder))
+        liste = []
+        for i in dcm_list:
+            match = re.search(self.base_path, dcm_list[i])
+            start_pos = match.regs[0][0]
+            liste.append(dcm_list[start_pos:])
+        return liste
 
     def loadParallelDicom(self, csv_file, dcm_csv_file):
         df = pd.read_csv(csv_file)

@@ -58,10 +58,11 @@ class PreDcmLoader(BaseDcmLoader):
         self.sql_config = sql_config
         if dicom_reader_backend == 'pydicom':
             from loaders.pydicom_loader import pydicom_loader
-            self.loader = pydicom_loader(self.recursive_folder)
+            self.loader = pydicom_loader(
+                self.recursive_folder, self.input_folder)
         elif dicom_reader_backend == 'sitk':
             from loaders.sitk_loader import sitk_loader
-            self.loader = sitk_loader(self.recursive_folder)
+            self.loader = sitk_loader(self.recursive_folder, self.input_folder)
         else:
             raise ValueError('Backend not recognized')
 
