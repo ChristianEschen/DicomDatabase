@@ -5,6 +5,9 @@ import os
 import argparse
 import time
 from pathlib import Path
+import os
+import re
+
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -20,7 +23,8 @@ parser.add_argument(
 
 
 class pydicom_loader():
-    def __init__(self, recursive_folder):
+    def __init__(self, recursive_folder, input_folder):
+        self.input_folder = input_folder
         self.recursive_folder = recursive_folder
         self.allowed_meta_cols_fields = [
             'DcmPathFlatten', 'TimeStamp', 'BodyPartExamined', 'DateStamp'
@@ -37,6 +41,13 @@ class pydicom_loader():
             'PositionerPrimaryAngle', 'PositionerSecondaryAngle',
             'CineRate', 'FrameTime']
 
+    def getRelateivePath(self, dcm_file):
+        self.base_path = os.path.basename(os.path.normpath(self.input_folder))
+        match = re.search(self.base_path, dcm_file)
+        start_pos = match.regs[0][0]
+        dcm_file = dcm_file[start_pos:]
+        return dcm_file
+
     def loadParallelDicom(self, csv_file, dcm_csv_file):
         df = pd.read_csv(csv_file)
         dcm_list = df['FileName'].tolist()
@@ -44,7 +55,8 @@ class pydicom_loader():
         for dcm_file_name in dcm_list:
             try:
                 dcm = pydicom.dcmread(dcm_file_name)
-                setattr(dcm, 'DcmPathFlatten', dcm_file_name)
+                dcm_file_name_write = self.getRelateivePath(dcm_file_name)
+                setattr(dcm, 'DcmPathFlatten', dcm_file_name_write)
                 for col in self.meta_cols:
                     if hasattr(dcm, col):
                         self.meta_cols[col].append(str(getattr(dcm, col)))
