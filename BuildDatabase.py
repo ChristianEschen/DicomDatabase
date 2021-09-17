@@ -17,9 +17,6 @@ parser.add_argument(
     '--input_folder', type=str,
     help="The path for the input (assumened) falletenet directory")
 parser.add_argument(
-    '--recursive_output_folder', type=str, required=False,
-    help="The path for the resursive output data dicom folder")
-parser.add_argument(
     '--temp_dir', type=str,
     help="temp dir")
 parser.add_argument(
@@ -209,6 +206,7 @@ class PreDcmLoader(BaseDcmLoader):
         return df
 
     def __call__(self):
+        self.mkFolder(self.temp_dir)
         self.maybResetFolder(self.csv_folder)
         self.maybResetFolder(self.csv_dcm_folder)
         self.csv_files = self.create_filenames_in_batches(self.input_folder,

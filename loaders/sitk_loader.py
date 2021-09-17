@@ -13,9 +13,7 @@ parser.add_argument(
 parser.add_argument(
     '--output_file', type=str,
     help="The path for the output file")
-parser.add_argument(
-    '--recursive_folder', type=str,
-    help="The path for recursive folder")
+
 
 
 class sitk_loader():
