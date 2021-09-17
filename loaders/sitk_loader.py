@@ -122,7 +122,7 @@ class sitk_loader():
             return df
 
     def create_recursive_paths(self, df):
-        df['RecursiveFilePath'] = self.recursive_folder + os.sep \
+        df['RecursiveFilePath'] = os.sep \
             + df['0010|0020'] + os.sep + \
             df['0020|000d'] + os.sep + \
             df['0020|000e'] + \

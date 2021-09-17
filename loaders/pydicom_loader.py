@@ -88,7 +88,7 @@ class pydicom_loader():
             return df_data
 
     def create_recursive_paths_pydicom(self, df):
-        df['RecursiveFilePath'] = self.recursive_folder + os.sep \
+        df['RecursiveFilePath'] = os.sep \
             + df['PatientID'] + os.sep + \
             df['StudyInstanceUID'] + os.sep + \
             df['SeriesInstanceUID'] + \
@@ -98,11 +98,15 @@ class pydicom_loader():
 
     def setTimeStamp(self, df):
         df['TimeStamp'] = df['SeriesTime']
-        df.replace({'TimeStamp': {'': 0}}, inplace=True)
         df.replace({'TimeStamp': {np.nan: 0}}, inplace=True)
+        df.replace({'TimeStamp': {0: ''}}, inplace=True)
+        df.replace({'TimeStamp': {'': 0}}, inplace=True)
+
         df['DateStamp'] = df['SeriesDate']
-        df.replace({'DateStamp': {'': 0}}, inplace=True)
         df.replace({'DateStamp': {np.nan: 0}}, inplace=True)
+        df.replace({'DateStamp': {0: ''}}, inplace=True)
+        df.replace({'DateStamp': {'': 0}}, inplace=True)
+        
         df['TimeStamp'] = \
             pd.to_datetime(
                 df['DateStamp'].astype(float).astype(int).
