@@ -17,15 +17,12 @@ parser.add_argument(
 parser.add_argument(
     '--output_file', type=str,
     help="The path for the output file")
-parser.add_argument(
-    '--recursive_folder', type=str,
-    help="The path for recursive folder")
+
 
 
 class pydicom_loader():
     def __init__(self, recursive_folder, input_folder):
         self.input_folder = input_folder
-        self.recursive_folder = recursive_folder
         self.allowed_meta_cols_fields = [
             'DcmPathFlatten', 'TimeStamp', 'BodyPartExamined', 'DateStamp'
             'Modality', 'PatientID', 'StudyInstanceUID',

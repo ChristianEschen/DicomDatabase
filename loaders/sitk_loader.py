@@ -13,15 +13,11 @@ parser.add_argument(
 parser.add_argument(
     '--output_file', type=str,
     help="The path for the output file")
-parser.add_argument(
-    '--recursive_folder', type=str,
-    help="The path for recursive folder")
 
 
 class sitk_loader():
     def __init__(self, recursive_folder, input_folder):
         self.input_folder = input_folder
-        self.recursive_folder = recursive_folder
         self.allowed_meta_cols_fields = {
             '0010|0020': 'PatientID',
             '0018|0015': 'BodyPartExamined',
