@@ -17,9 +17,6 @@ parser.add_argument(
     '--input_folder', type=str,
     help="The path for the input (assumened) falletenet directory")
 parser.add_argument(
-    '--recursive_output_folder', type=str, required=False,
-    help="The path for the resursive output data dicom folder")
-parser.add_argument(
     '--temp_dir', type=str,
     help="temp dir")
 parser.add_argument(
@@ -220,7 +217,6 @@ if __name__ == '__main__':
     start_time = time.time()
     args = parser.parse_args()
     input_folder = args.input_folder
-    recursive_data_folder = args.recursive_output_folder
     sql_config = {'database':
                   args.sql_db_file}
     num_workers = args.num_workers
@@ -235,16 +231,13 @@ if __name__ == '__main__':
 
     preDcmLoader = PreDcmLoader(
         input_folder, temp_dir, sql_config=sql_config,
-        recursive_folder=recursive_data_folder,
         dicom_reader_backend=dicom_reader_backend,
         num_workers=num_workers,
         para_method=para_method)
     preDcmLoader()
     df = preDcmLoader.appendDataframes()
-    # Do not write to csv files
-    # preDcmLoader.copy_files_serial(df)
+
     preDcmLoader.insertDatabase(df)
-    # df = preDcmLoader.getDataFromDatabase(query="SELECT RecursiveFilePath FROM DICOM_TABLE")
 
     rmtree(temp_dir)
     print('done buiding database')
