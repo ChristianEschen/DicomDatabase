@@ -21,7 +21,7 @@ parser.add_argument(
 
 
 class pydicom_loader():
-    def __init__(self, recursive_folder, input_folder):
+    def __init__(self, input_folder):
         self.input_folder = input_folder
         self.allowed_meta_cols_fields = [
             'DcmPathFlatten', 'TimeStamp', 'BodyPartExamined', 'DateStamp'

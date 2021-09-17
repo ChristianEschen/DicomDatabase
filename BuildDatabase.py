@@ -40,13 +40,12 @@ parser.add_argument(
 
 class PreDcmLoader(BaseDcmLoader):
     def __init__(self, input_folder, temp_dir,
-                 sql_config, recursive_folder,
+                 sql_config,
                  dicom_reader_backend, num_workers,
                  para_method):
         self.dicom_reader_backend = dicom_reader_backend
         self.input_folder = input_folder
         self.temp_dir = temp_dir
-        self.recursive_folder = recursive_folder
         self.csv_folder = os.path.join(temp_dir, "csv_folder")
         self.csv_dcm_folder = os.path.join(temp_dir,
                                            "csv_dcm_folder")
@@ -56,10 +55,10 @@ class PreDcmLoader(BaseDcmLoader):
         if dicom_reader_backend == 'pydicom':
             from loaders.pydicom_loader import pydicom_loader
             self.loader = pydicom_loader(
-                self.recursive_folder, self.input_folder)
+                self.input_folder)
         elif dicom_reader_backend == 'sitk':
             from loaders.sitk_loader import sitk_loader
-            self.loader = sitk_loader(self.recursive_folder, self.input_folder)
+            self.loader = sitk_loader(self.input_folder)
         else:
             raise ValueError('Backend not recognized')
 
