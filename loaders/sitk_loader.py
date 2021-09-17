@@ -46,14 +46,12 @@ class sitk_loader():
                 errors='coerce')
         return df
 
-    def getRelateivePath(self, dcm_list):
+    def getRelateivePath(self, dcm_file):
         self.base_path = os.path.basename(os.path.normpath(self.input_folder))
-        liste = []
-        for i in dcm_list:
-            match = re.search(self.base_path, dcm_list[i])
-            start_pos = match.regs[0][0]
-            liste.append(dcm_list[start_pos:])
-        return liste
+        match = re.search(self.base_path, dcm_file)
+        start_pos = match.regs[0][0]
+        dcm_file = dcm_file[start_pos:]
+        return dcm_file
 
     def loadParallelDicom(self, csv_file, dcm_csv_file):
         df = pd.read_csv(csv_file)
