@@ -3,13 +3,13 @@ import os
 import numpy as np
 import pandas as pd
 import concurrent.futures
-from sqlalchemy import create_engine
-import sqlite3
+import psycopg2
 import argparse
 import time
 from shutil import copyfile
 from shutil import rmtree
-
+from typing import Iterator, Dict, Any, Optional
+from stringio import StringIteratorIO
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -20,11 +20,20 @@ parser.add_argument(
     '--temp_dir', type=str,
     help="temp dir")
 parser.add_argument(
-    '--delete_existing_database', type=str,
-    help="remove existing database")
+    '--database', type=str,
+    help="database name")
 parser.add_argument(
-    '--sql_db_file', type=str,
-    help="The path to teh sql db file")
+    '--username', type=str,
+    help="username for database")
+parser.add_argument(
+    '--password', type=str,
+    help="password for database")
+parser.add_argument(
+    '--host', type=str,
+    help="host for database")
+parser.add_argument(
+    '--port', type=str,
+    help="port for database")
 parser.add_argument(
     '--num_workers', type=int,
     help="The number of workers to use")
@@ -49,16 +58,45 @@ class PreDcmLoader(BaseDcmLoader):
         self.csv_folder = os.path.join(temp_dir, "csv_folder")
         self.csv_dcm_folder = os.path.join(temp_dir,
                                            "csv_dcm_folder")
+        self.allowed_meta_cols_fields = {
+            'rowid': 'BIGINT PRIMARY KEY',
+            'DcmPathFlatten': 'varchar(255)',
+            'SeriesDate': 'varchar (255)',
+            'TimeStamp': 'TIMESTAMP',
+            'DateStamp': 'varchar(255)',
+            'StudyTime': 'time',
+            'SeriesTime': 'TIMESTAMP',
+            'BodyPartExamined': 'varchar(255)',
+            'Modality': 'varchar(255)',
+            'PatientID': 'varchar(255)',
+            'StudyInstanceUID': 'varchar(255)',
+            'SeriesInstanceUID': 'varchar(255)',
+            'SOPInstanceUID': 'varchar(255)',
+            'StudyDescription': 'varchar(255)',
+            'SeriesDescription': 'varchar(255)',
+            'AdditionalPatientHistory': 'varchar(255)',
+            'Manufacturer': 'varchar(255)',
+            'InstitutionalName': 'varchar(255)',
+            'NumberOfFrames': 'int8',
+            'FrameIncrementPointer': 'varchar(255)',
+            'FrameTime': 'float8',
+            'PositionerMotion': 'varchar(255)',
+            'DistanceSourceToPatient': 'float8',
+            'DistanceSourceToDetector': 'float8',
+            'PositionerPrimaryAngle': 'float8',
+            'PositionerSecondaryAngle': 'float8',
+            'CineRate': 'float8'
+            }
         self.num_workers = num_workers
         self.para_method = para_method
         self.sql_config = sql_config
         if dicom_reader_backend == 'pydicom':
             from loaders.pydicom_loader import pydicom_loader
             self.loader = pydicom_loader(
-                self.input_folder)
+                self.input_folder, self.allowed_meta_cols_fields)
         elif dicom_reader_backend == 'sitk':
             from loaders.sitk_loader import sitk_loader
-            self.loader = sitk_loader(self.input_folder)
+            self.loader = sitk_loader(self.input_folder, self.allowed_meta_cols_fields)
         else:
             raise ValueError('Backend not recognized')
 
@@ -138,21 +176,6 @@ class PreDcmLoader(BaseDcmLoader):
             li.append(df)
         return pd.concat(li, axis=0, ignore_index=True)
 
-    def populateDatabase(self):
-        self.ConnectDatebase()
-        self.df = self.setDtypeStr(self.df)
-        self.insertDatabase()
-
-    def setDtypeStr(self, df):
-        df = df.astype(str)
-        df['TimeStamp'] = df['TimeStamp'].astype('datetime64[ns]')
-        return df
-
-    def ConnectDatebase(self):
-        self.mkFolder(os.path.dirname(self.sql_config['database']))
-        self.engine = create_engine("sqlite:///" + self.sql_config['database'])
-        self.db_connection = self.engine.connect()
-
     def copy_files_serial(self, df):
         inputList = list(df['DcmPathFlatten'])
         outputList = list(df['RecursiveFilePath'])
@@ -175,29 +198,57 @@ class PreDcmLoader(BaseDcmLoader):
         missing_fields = set(df.columns.to_list()).intersection(differences)
         return missing_fields
 
-    def insertDatabase(self, df):
-        self.conn = sqlite3.connect(self.sql_config['database'])
-        self.cursor = self.conn.cursor()
-        self.cursor.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='DICOM_TABLE' ''')
-        if self.cursor.fetchone()[0]==1 : 
-            print('Table exists.')
-            names = self.getColumnNamesInDatabase()
-            missing_fields = self.compareLists(df, names)
-            for missing_field in list(missing_fields):
-                addColumn = \
-                    "ALTER TABLE DICOM_TABLE ADD " \
-                    + '"' + missing_field + '"' \
-                    " varchar(32)"
-                self.cursor.execute(addColumn)
-               # self.conn.commit()
-               #  self.conn.close()
-        else :
-            print('Table does not exist.')
+    def prepareTable(self):
+        self.conn = psycopg2.connect(
+            host=self.sql_config['host'],
+            database=self.sql_config['database'],
+            user=self.sql_config['username'],
+            password=self.sql_config['password'])
 
-        df.to_sql(
-            con=self.conn, name='DICOM_TABLE',
-            index=False, if_exists='append')
+    def clean_csv_value(self, value: Optional[Any]) -> str:
+        if value is None:
+            return r'\N'
+        return str(value).replace('\n', '\\n')
+
+    def copy_string_iterator(self,
+                             gene_dcm: Iterator[Dict[str, Any]],
+                             size: int = 8192) -> None:
+        with self.conn.cursor() as cursor:
+            gene_dcm_string_iterator = StringIteratorIO((
+                '|'.join(map(self.clean_csv_value, 
+                     tuple(list(dcm.values()))
+                )) + '\n'
+                for dcm in gene_dcm
+            ))
+            cursor.copy_from(gene_dcm_string_iterator,
+                             'dicom_table',
+                             sep='|',
+                             null='nan',
+                             size=size)
+
+    def insertDatabase(self, df):
+        liste = []
+        for key in self.allowed_meta_cols_fields.keys():
+            val = self.allowed_meta_cols_fields[key]
+            string = "\"" + key + "\"" + ' ' + val
+            #string = key + ' ' + val
+            liste.append(string)
+        col_vals = ",\n".join(liste)
+        self.cursor = self.conn.cursor()
+        sql = """
+            CREATE TABLE IF NOT EXISTS dicom_table (
+                {}
+            );
+            """.format(col_vals)
+        self.cursor.execute(sql)
+        self.cursor.execute('COMMIT;')
+        df['rowid'] = df.index
+        records = df.to_dict('records')
+        generator = (y for y in records)
+        self.cursor.close()
+        self.copy_string_iterator(generator)
         self.conn.close()
+        print('don')
 
     def getDataFromDatabase(self, query="SELECT FileName, RecursiveFilePath FROM DICOM_TABLE"):
         mydb = sqlite3.connect(self.sql_config['database'])
@@ -212,21 +263,27 @@ class PreDcmLoader(BaseDcmLoader):
 
         self.preload_dcm(self.csv_files)
 
+
 if __name__ == '__main__':
     start_time = time.time()
     args = parser.parse_args()
     input_folder = args.input_folder
     sql_config = {'database':
-                  args.sql_db_file}
+                  args.database,
+                  'username':
+                  args.username,
+                  'password':
+                  args.password,
+                  'host':
+                  args.host,
+                  'port':
+                  args.port,
+                  }
     num_workers = args.num_workers
     temp_dir = args.temp_dir
     para_method = args.para_method
-    remove_existing_database = args.delete_existing_database
     dicom_reader_backend = args.dicom_reader_backend
-
-    if remove_existing_database == "True":
-        if os.path.isfile(sql_config['database']):
-            os.remove(sql_config['database'])
+    temp_csv_file = os.path.join(args.temp_dir, 'temp_csv.csv')
 
     preDcmLoader = PreDcmLoader(
         input_folder, temp_dir, sql_config=sql_config,
@@ -236,6 +293,7 @@ if __name__ == '__main__':
     preDcmLoader()
     df = preDcmLoader.appendDataframes()
 
+    preDcmLoader.prepareTable()
     preDcmLoader.insertDatabase(df)
 
     rmtree(temp_dir)
