@@ -35,6 +35,9 @@ parser.add_argument(
     '--port', type=str,
     help="port for database")
 parser.add_argument(
+    '--table_name', type=str,
+    help="table name in database")
+parser.add_argument(
     '--num_workers', type=int,
     help="The number of workers to use")
 parser.add_argument(
@@ -85,7 +88,11 @@ class PreDcmLoader(BaseDcmLoader):
             'DistanceSourceToDetector': 'float8',
             'PositionerPrimaryAngle': 'float8',
             'PositionerSecondaryAngle': 'float8',
-            'CineRate': 'float8'
+            'CineRate': 'float8',
+            'labels': 'int8',
+            'labels_transformed': 'int8',
+            'predictions': 'int8',
+            'confidences': 'TEXT []'
             }
         self.num_workers = num_workers
         self.para_method = para_method
@@ -187,18 +194,13 @@ class PreDcmLoader(BaseDcmLoader):
             self.mkFolder(os.path.dirname(outputList[idx]))
             copyfile(inputList[idx], outputList[idx])
 
-    def getColumnNamesInDatabase(self):
-        self.cursor = self.conn.execute('select * from DICOM_TABLE')
-        names = list(map(lambda x: x[0], self.cursor.description))
-        return names
-
     def compareLists(self, df, names):
         differences = set(
             df.columns.to_list()).difference(names)
         missing_fields = set(df.columns.to_list()).intersection(differences)
         return missing_fields
 
-    def prepareTable(self):
+    def connetcdatabase(self):
         self.conn = psycopg2.connect(
             host=self.sql_config['host'],
             database=self.sql_config['database'],
@@ -221,7 +223,7 @@ class PreDcmLoader(BaseDcmLoader):
                 for dcm in gene_dcm
             ))
             cursor.copy_from(gene_dcm_string_iterator,
-                             'dicom_table',
+                             self.sql_config['table_name'],
                              sep='|',
                              null='nan',
                              size=size)
@@ -236,10 +238,10 @@ class PreDcmLoader(BaseDcmLoader):
         col_vals = ",\n".join(liste)
         self.cursor = self.conn.cursor()
         sql = """
-            CREATE TABLE IF NOT EXISTS dicom_table (
+            CREATE TABLE {} (
                 {}
             );
-            """.format(col_vals)
+            """.format(self.sql_config['table_name'], col_vals)
         self.cursor.execute(sql)
         self.cursor.execute('COMMIT;')
         df['rowid'] = df.index
@@ -249,11 +251,6 @@ class PreDcmLoader(BaseDcmLoader):
         self.copy_string_iterator(generator)
         self.conn.close()
         print('don')
-
-    def getDataFromDatabase(self, query="SELECT FileName, RecursiveFilePath FROM DICOM_TABLE"):
-        mydb = sqlite3.connect(self.sql_config['database'])
-        df = pd.read_sql_query(query, mydb)
-        return df
 
     def __call__(self):
         self.maybResetFolder(self.csv_folder)
@@ -278,6 +275,8 @@ if __name__ == '__main__':
                   args.host,
                   'port':
                   args.port,
+                  'table_name':
+                  args.table_name
                   }
     num_workers = args.num_workers
     temp_dir = args.temp_dir
@@ -293,7 +292,7 @@ if __name__ == '__main__':
     preDcmLoader()
     df = preDcmLoader.appendDataframes()
 
-    preDcmLoader.prepareTable()
+    preDcmLoader.connetcdatabase()
     preDcmLoader.insertDatabase(df)
 
     rmtree(temp_dir)
