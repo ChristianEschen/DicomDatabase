@@ -21,22 +21,9 @@ parser.add_argument(
 
 
 class pydicom_loader():
-    def __init__(self, input_folder):
+    def __init__(self, input_folder, allowed_meta_cols_fields):
         self.input_folder = input_folder
-        self.allowed_meta_cols_fields = [
-            'DcmPathFlatten', 'TimeStamp', 'BodyPartExamined', 'DateStamp'
-            'Modality', 'PatientID', 'StudyInstanceUID',
-            'SeriesInstanceUID', 'SOPInstanceUID', 'Organ',
-            'StudyDescription', 'SeriesDescription',
-            'AdditionalPatientHistory',
-            'Manufacturer', 'ContrastBolusAgent', 'StudyDate',
-            'StudyTime', 'SeriesTime', 'SeriesDate', 'InstitutionalName',
-            'RecursiveFilePath',
-            # KAG
-            'NumberOfFrames', 'FrmeIncrementPointer', 'PositionerMotion',
-            'DistanceSourceToPatient', 'DistanceSourceToDetector',
-            'PositionerPrimaryAngle', 'PositionerSecondaryAngle',
-            'CineRate', 'FrameTime']
+        self.allowed_meta_cols_fields = list(allowed_meta_cols_fields.keys())
 
     def getRelateivePath(self, dcm_file):
         self.base_path = os.path.basename(os.path.normpath(self.input_folder))
@@ -62,10 +49,10 @@ class pydicom_loader():
             except Exception as ex:
                print('Exception occured:', ex, 'in dcm-file:', dcm_file_name)
         df_data = pd.DataFrame.from_dict(self.meta_cols)
-        df_data = self.create_recursive_paths_pydicom(df_data)
-
+       # df_data = self.create_recursive_paths_pydicom(df_data)
+    
         df_data = self.setTimeStamp(df_data)
-        df_data = df_data.astype(str)
+       # df_data = df_data.astype(str)
         # save data
         df_data.to_csv(dcm_csv_file, index=False)
         return None
@@ -77,9 +64,9 @@ class pydicom_loader():
             self.meta_cols = {col: [] for col in self.allowed_meta_cols_fields}
             for dcm_file_name in dcm_list:
                 df_data = pd.DataFrame.from_dict(self.meta_cols)
-                df_data = self.create_recursive_paths_pydicom(df_data)
+            #    df_data = self.create_recursive_paths_pydicom(df_data)
                 df_data = self.setTimeStamp(df_data)
-                df_data = df_data.astype(str)
+           #     df_data = df_data.astype(str)
                 # save data
                 df_data.to_csv(csv_dcm_list[i], index=False)
             return df_data
@@ -134,5 +121,5 @@ if __name__ == '__main__':
     input_file = args.input_file
     output_file = args.output_file
     recursive_folder = args.recursive_folder
-    dicom_load  =pydicom_loader(recursive_folder)
+    dicom_load = pydicom_loader(recursive_folder)
     dicom_load.loadParallelDicom(input_file, output_file)
