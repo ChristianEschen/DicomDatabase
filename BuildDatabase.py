@@ -10,6 +10,7 @@ from shutil import copyfile
 from shutil import rmtree
 from typing import Iterator, Dict, Any, Optional
 from stringio import StringIteratorIO
+from populateDatabase import populateDB
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -65,10 +66,11 @@ class PreDcmLoader(BaseDcmLoader):
             'rowid': 'BIGINT PRIMARY KEY',
             'DcmPathFlatten': 'varchar(255)',
             'SeriesDate': 'varchar (255)',
+            'StudyDate': 'varchar (255)',
             'TimeStamp': 'TIMESTAMP',
             'DateStamp': 'varchar(255)',
             'StudyTime': 'time',
-            'SeriesTime': 'TIMESTAMP',
+            'SeriesTime': 'time',
             'BodyPartExamined': 'varchar(255)',
             'Modality': 'varchar(255)',
             'PatientID': 'varchar(255)',
@@ -200,58 +202,6 @@ class PreDcmLoader(BaseDcmLoader):
         missing_fields = set(df.columns.to_list()).intersection(differences)
         return missing_fields
 
-    def connetcdatabase(self):
-        self.conn = psycopg2.connect(
-            host=self.sql_config['host'],
-            database=self.sql_config['database'],
-            user=self.sql_config['username'],
-            password=self.sql_config['password'])
-
-    def clean_csv_value(self, value: Optional[Any]) -> str:
-        if value is None:
-            return r'\N'
-        return str(value).replace('\n', '\\n')
-
-    def copy_string_iterator(self,
-                             gene_dcm: Iterator[Dict[str, Any]],
-                             size: int = 8192) -> None:
-        with self.conn.cursor() as cursor:
-            gene_dcm_string_iterator = StringIteratorIO((
-                '|'.join(map(self.clean_csv_value, 
-                     tuple(list(dcm.values()))
-                )) + '\n'
-                for dcm in gene_dcm
-            ))
-            cursor.copy_from(gene_dcm_string_iterator,
-                             self.sql_config['table_name'],
-                             sep='|',
-                             null='nan',
-                             size=size)
-
-    def insertDatabase(self, df):
-        liste = []
-        for key in self.allowed_meta_cols_fields.keys():
-            val = self.allowed_meta_cols_fields[key]
-            string = "\"" + key + "\"" + ' ' + val
-            #string = key + ' ' + val
-            liste.append(string)
-        col_vals = ",\n".join(liste)
-        self.cursor = self.conn.cursor()
-        sql = """
-            CREATE TABLE {} (
-                {}
-            );
-            """.format(self.sql_config['table_name'], col_vals)
-        self.cursor.execute(sql)
-        self.cursor.execute('COMMIT;')
-        df['rowid'] = df.index
-        records = df.to_dict('records')
-        generator = (y for y in records)
-        self.cursor.close()
-        self.copy_string_iterator(generator)
-        self.conn.close()
-        print('don')
-
     def __call__(self):
         self.maybResetFolder(self.csv_folder)
         self.maybResetFolder(self.csv_dcm_folder)
@@ -291,9 +241,11 @@ if __name__ == '__main__':
         para_method=para_method)
     preDcmLoader()
     df = preDcmLoader.appendDataframes()
-
-    preDcmLoader.connetcdatabase()
-    preDcmLoader.insertDatabase(df)
+    populater = populateDB(
+        sql_config=sql_config,
+        allowed_meta_cols_fields=preDcmLoader.allowed_meta_cols_fields
+                           )
+    populater(df)
 
     rmtree(temp_dir)
     print('done buiding database')

@@ -86,7 +86,13 @@ class pydicom_loader():
         df.replace({'TimeStamp': {0: ''}}, inplace=True)
         df.replace({'TimeStamp': {'': 0}}, inplace=True)
 
-        df['DateStamp'] = df['SeriesDate']
+        df.replace({'SeriesTime': {np.nan: 0}}, inplace=True)
+        df.replace({'SeriesTime': {0: ''}}, inplace=True)
+        df.replace({'SeriesTime': {'': "000000"}}, inplace=True)
+        df['SeriesTime'] = df['SeriesTime'].apply(lambda x: x[0:6])
+
+        df['StudyDate'] = df['StudyDate']
+        df['DateStamp'] = df['StudyDate']
         df.replace({'DateStamp': {np.nan: 0}}, inplace=True)
         df.replace({'DateStamp': {0: ''}}, inplace=True)
         df.replace({'DateStamp': {'': 0}}, inplace=True)
