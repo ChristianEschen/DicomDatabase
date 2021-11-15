@@ -9,9 +9,22 @@ class BaseDcmLoader:
     def get_recursive_files(self, input_path):
         filenames = []
         path = Path(input_path)
+        exts = ['.DCM', '.SR', '.dcm', '.sr', ]  # the tuple of file exts
         for p in path.rglob("*"):
-            filenames.append(p)
+            if os.path.isdir(str(p)) is False:
+                if p.suffix in exts:
+                    filenames.append(p)
         return filenames
+
+    def validation_dcm_file(self, dcm_path):
+        try:
+            pydicom.dcmread(dcm_path)
+            isValid = True
+        except Exception as ex:
+            print('Dicom read exception:', ex)
+            print('cannot read dcm file:', dcm_path)
+            isValid = False
+        return isValid
 
     def validate_dicom(self, dcm_paths):
         valid_dcm_paths = []

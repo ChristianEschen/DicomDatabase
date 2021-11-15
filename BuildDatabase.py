@@ -11,6 +11,8 @@ from shutil import rmtree
 from typing import Iterator, Dict, Any, Optional
 from stringio import StringIteratorIO
 from populateDatabase import populateDB
+from dicom_dict_db import get_meta_dicom
+import pydicom
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -62,40 +64,7 @@ class PreDcmLoader(BaseDcmLoader):
         self.csv_folder = os.path.join(temp_dir, "csv_folder")
         self.csv_dcm_folder = os.path.join(temp_dir,
                                            "csv_dcm_folder")
-        self.allowed_meta_cols_fields = {
-            'rowid': 'BIGINT PRIMARY KEY',
-            'DcmPathFlatten': 'varchar(255)',
-            'SeriesDate': 'varchar (255)',
-            'StudyDate': 'varchar (255)',
-            'TimeStamp': 'TIMESTAMP',
-            'DateStamp': 'varchar(255)',
-            'StudyTime': 'time',
-            'SeriesTime': 'time',
-            'BodyPartExamined': 'varchar(255)',
-            'Modality': 'varchar(255)',
-            'PatientID': 'varchar(255)',
-            'StudyInstanceUID': 'varchar(255)',
-            'SeriesInstanceUID': 'varchar(255)',
-            'SOPInstanceUID': 'varchar(255)',
-            'StudyDescription': 'varchar(255)',
-            'SeriesDescription': 'varchar(255)',
-            'AdditionalPatientHistory': 'varchar(255)',
-            'Manufacturer': 'varchar(255)',
-            'InstitutionalName': 'varchar(255)',
-            'NumberOfFrames': 'int8',
-            'FrameIncrementPointer': 'varchar(255)',
-            'FrameTime': 'float8',
-            'PositionerMotion': 'varchar(255)',
-            'DistanceSourceToPatient': 'float8',
-            'DistanceSourceToDetector': 'float8',
-            'PositionerPrimaryAngle': 'float8',
-            'PositionerSecondaryAngle': 'float8',
-            'CineRate': 'float8',
-            'labels': 'int8',
-            'labels_transformed': 'int8',
-            'predictions': 'int8',
-            'confidences': 'TEXT []'
-            }
+        self.allowed_meta_cols_fields = get_meta_dicom()
         self.num_workers = num_workers
         self.para_method = para_method
         self.sql_config = sql_config
@@ -108,6 +77,11 @@ class PreDcmLoader(BaseDcmLoader):
             self.loader = sitk_loader(self.input_folder, self.allowed_meta_cols_fields)
         else:
             raise ValueError('Backend not recognized')
+
+    def getMetaDcm(self):
+        dcm_dict = pydicom._dicom_dict.DicomDictionary
+        columns = [i[-1] for i in dcm_dict]
+        return columns
 
     def split_csv_files(self, input_files, num_workers=8):
         def batch(iterable, n=1):
@@ -232,7 +206,6 @@ if __name__ == '__main__':
     temp_dir = args.temp_dir
     para_method = args.para_method
     dicom_reader_backend = args.dicom_reader_backend
-    temp_csv_file = os.path.join(args.temp_dir, 'temp_csv.csv')
 
     preDcmLoader = PreDcmLoader(
         input_folder, temp_dir, sql_config=sql_config,
@@ -241,9 +214,12 @@ if __name__ == '__main__':
         para_method=para_method)
     preDcmLoader()
     df = preDcmLoader.appendDataframes()
+    df = df.drop_duplicates(
+            ['PatientID', 'StudyInstanceUID',
+             'SeriesInstanceUID', 'SOPInstanceUID'])
     populater = populateDB(
         sql_config=sql_config,
-        allowed_meta_cols_fields=preDcmLoader.allowed_meta_cols_fields
+        allowed_meta_cols_fields=get_meta_dicom()
                            )
     populater(df)
 
