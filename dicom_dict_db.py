@@ -38,7 +38,7 @@ def get_meta_dicom():
             'PositionerSecondaryAngle': 'float8',
             'CineRate': 'float8',
             'labels': 'int8',
-            'labels_transformed': 'int8',
+            'labels_original': 'int8',
             'predictions': 'int8',
             'confidences': 'TEXT []'
             }
