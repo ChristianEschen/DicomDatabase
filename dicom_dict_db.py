@@ -38,45 +38,45 @@ def get_meta_dicom():
             'PositionerSecondaryAngle': 'float8',
             'CineRate': 'float8',
             'labels': 'int8',
-            'labels_original': 'int8',
+            'labels_transformed': 'int8',
             'predictions': 'int8',
             'confidences': 'TEXT []'
             }
     return allowed_meta_cols_fields
 
 
-def get_meta_dicom_pd():
-    pandas_fields = {
-            'rowid': np.in32,
-            'DcmPathFlatten': str,
-            'SeriesDate': 'varchar (255)',
-            'TimeStamp': 'TIMESTAMP',
-            'DateStamp': str,
-            'StudyTime': 'time',
-            'SeriesTime': 'time',
-            'BodyPartExamined': str,
-            'Modality': str,
-            'PatientID': str,
-            'StudyInstanceUID': str,
-            'SeriesInstanceUID': str,
-            'SOPInstanceUID': str,
-            'StudyDescription': str,
-            'SeriesDescription': str,
-            'AdditionalPatientHistory': str,
-            'Manufacturer': str,
-            'InstitutionalName': str,
-            'NumberOfFrames': 'int8',
-            'FrameIncrementPointer': str,
-            'FrameTime': 'float8',
-            'PositionerMotion': str,
-            'DistanceSourceToPatient': 'float8',
-            'DistanceSourceToDetector': 'float8',
-            'PositionerPrimaryAngle': 'float8',
-            'PositionerSecondaryAngle': 'float8',
-            'CineRate': 'float8',
-            'labels': 'int8',
-            'labels_transformed': 'int8',
-            'predictions': 'int8',
-            'confidences': 'TEXT []'
-            }
-    return pandas_fields
+# def get_meta_dicom_pd():
+#     pandas_fields = {
+#             'rowid': np.in32,
+#             'DcmPathFlatten': str,
+#             'SeriesDate': 'varchar (255)',
+#             'TimeStamp': 'TIMESTAMP',
+#             'DateStamp': str,
+#             'StudyTime': 'time',
+#             'SeriesTime': 'time',
+#             'BodyPartExamined': str,
+#             'Modality': str,
+#             'PatientID': str,
+#             'StudyInstanceUID': str,
+#             'SeriesInstanceUID': str,
+#             'SOPInstanceUID': str,
+#             'StudyDescription': str,
+#             'SeriesDescription': str,
+#             'AdditionalPatientHistory': str,
+#             'Manufacturer': str,
+#             'InstitutionalName': str,
+#             'NumberOfFrames': 'int8',
+#             'FrameIncrementPointer': str,
+#             'FrameTime': 'float8',
+#             'PositionerMotion': str,
+#             'DistanceSourceToPatient': 'float8',
+#             'DistanceSourceToDetector': 'float8',
+#             'PositionerPrimaryAngle': 'float8',
+#             'PositionerSecondaryAngle': 'float8',
+#             'CineRate': 'float8',
+#             'labels': 'int8',
+#             'labels_transformed': 'int8',
+#             'predictions': 'int8',
+#             'confidences': 'TEXT []'
+#             }
+#     return pandas_fields
