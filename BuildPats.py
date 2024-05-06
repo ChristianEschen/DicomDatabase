@@ -207,6 +207,7 @@ class BuildPats():
 
 
 if __name__ == '__main__':
+    
     args = parser.parse_args()
 
     sql_config = {'database':
@@ -221,6 +222,20 @@ if __name__ == '__main__':
                   args.port,
                   'table_name':
                   args.table_name
+                  }
+    
+    sql_config = {'database':
+                  "mydb",
+                  'username':
+                  "alatar",
+                  'password':
+                  "123qweasd",
+                  'host':
+                  "localhost",
+                  'port':
+                  5432,
+                  'table_name':
+                  "test_deploy"
                   }
     merger = BuildPats(
         sql_config,

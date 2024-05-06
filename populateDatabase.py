@@ -13,6 +13,7 @@ class populateDB():
         self.sql_config = sql_config
         self.connetcdatabase()
         self.allowed_meta_cols_fields = allowed_meta_cols_fields
+        self.columns = list(self.allowed_meta_cols_fields.keys())
 
     def connetcdatabase(self):
         self.conn = psycopg2.connect(
@@ -102,7 +103,39 @@ class populateDB():
             df[key] = df[key].astype(str)
             df.replace({'TimeStamp': {"NaT": None}}, inplace=True)
         return df
+    
+    def copy_table_to_schema(self, conn, table_name):
+            
+            sql_copy_table = """
+            CREATE SCHEMA IF NOT EXISTS cag;
+            CREATE TABLE cag.{table_name} AS
+                SELECT *
+                FROM {table_name};
+                """.format(table_name=table_name)
+            cursor = conn.cursor()
+            cursor.execute(sql_copy_table)
+            cursor.execute('COMMIT;')
+            cursor.close()
+            return None
+    
+    def reomve_none00(self, df):
+        df = df.replace('None00', "None").replace('None', None)
+        return df
+    
+    
+    def add_dummy_labels(self, conn, table_name):
 
+            sql_copy_table = """
+            UPDATE cag.{table_name} SET labels_transformed = FLOOR(RANDOM() * 3);
+            UPDATE cag.{table_name} SET labels = FLOOR(RANDOM() * 3);
+            UPDATE cag.{table_name} set labels_transformed = 1 WHERE rowid=1;
+            UPDATE cag.{table_name} set labels_transformed = 1 WHERE rowid=2;
+                """.format(table_name=table_name)
+            cursor = conn.cursor()
+            cursor.execute(sql_copy_table)
+            cursor.execute('COMMIT;')
+            cursor.close()
+            return None
     def __call__(self, df):
         liste = []
         for key in self.allowed_meta_cols_fields.keys():
@@ -112,7 +145,7 @@ class populateDB():
         col_vals = ",\n".join(liste)
         self.cursor = self.conn.cursor()
         sql = """
-            CREATE TABLE {} (
+            CREATE TABLE IF NOT EXISTS {} (
                 {}
             );
             """.format(self.sql_config['table_name'], col_vals)
@@ -120,8 +153,16 @@ class populateDB():
         self.cursor.execute('COMMIT;')
         df = df.where(pd.notnull(df), None)
         df = self.parse_values(df)
+        df = self.reomve_none00(df)
         records = df.to_dict('records')
         generator = (y for y in records)
         self.cursor.close()
         self.copy_string_iterator(generator)
+        self.copy_table_to_schema(self.conn, self.sql_config['table_name'])
+        self.add_dummy_labels(self.conn, self.sql_config['table_name'])
+#         sql_updata = 
+#         """UPDATE cag.dicom_table_arcade
+# SET labels_transformed = FLOOR(1 + (RANDOM() * 3)-1);"""
+
         self.conn.close()
+

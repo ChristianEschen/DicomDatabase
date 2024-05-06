@@ -13,6 +13,7 @@ from stringio import StringIteratorIO
 from populateDatabase import populateDB
 from dicom_dict_db import get_meta_dicom
 import pydicom
+from monai.transforms import Compose, LoadImaged, EnsureChannelFirstD, Resized, DeleteItemsd, SpatialPadd, RepeatChanneld, ScaleIntensityd, NormalizeIntensityd, EnsureTyped, ToDeviced, RandSpatialCropd, ConcatItemsd, Identityd
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -68,6 +69,7 @@ class PreDcmLoader(BaseDcmLoader):
         self.num_workers = num_workers
         self.para_method = para_method
         self.sql_config = sql_config
+        self.train_transforms = self.get_transform()
         if dicom_reader_backend == 'pydicom':
             from loaders.pydicom_loader import pydicom_loader
             self.loader = pydicom_loader(
@@ -78,6 +80,30 @@ class PreDcmLoader(BaseDcmLoader):
         else:
             raise ValueError('Backend not recognized')
 
+    def get_transform(self):
+        train_transforms = [
+            LoadImaged(keys=["DcmPathFlatten"]),
+            EnsureChannelFirstD(keys=["DcmPathFlatten"]),
+            Resized(keys=["DcmPathFlatten"], spatial_size=(
+                    224, 224, -1)),
+            SpatialPadd(keys=["DcmPathFlatten"],
+                        spatial_size=[224, 224, 32]),
+            RepeatChanneld(keys=["DcmPathFlatten"], repeats=3),
+            ScaleIntensityd(keys=["DcmPathFlatten"]),
+            NormalizeIntensityd(keys=["DcmPathFlatten"],
+                                subtrahend=(0.45, 0.45, 0.45),
+                                divisor=(0.225, 0.225, 0.225),
+                                channel_wise=True),
+            EnsureTyped(keys=["DcmPathFlatten"], data_type="tensor"),
+            ToDeviced(keys=["DcmPathFlatten"], device="cpu"),
+            RandSpatialCropd(keys=["DcmPathFlatten"],
+                            roi_size=[224, 224, 32],
+                random_size=False),
+            ConcatItemsd(keys=["DcmPathFlatten"], name='inputs'),
+            Identityd(keys=["DcmPathFlatten"]) ]
+        train_transforms = Compose(train_transforms)
+        print('train_transforms:', train_transforms)
+        return train_transforms
     def getMetaDcm(self):
         dcm_dict = pydicom._dicom_dict.DicomDictionary
         columns = [i[-1] for i in dcm_dict]
@@ -112,6 +138,7 @@ class PreDcmLoader(BaseDcmLoader):
         self.input_files = [str(i.absolute()) for i in self.input_files]
         self.input_files = [
             i for i in self.input_files if os.path.isdir(i) is False]
+        print('nr files:', len(self.input_files))
         csv_files = self.writeFileNames(self.input_files, csv_folder)
         return csv_files
 
@@ -185,6 +212,7 @@ class PreDcmLoader(BaseDcmLoader):
         self.preload_dcm(self.csv_files)
 
 
+
 if __name__ == '__main__':
     start_time = time.time()
     args = parser.parse_args()
@@ -202,11 +230,30 @@ if __name__ == '__main__':
                   'table_name':
                   args.table_name
                   }
+    
     num_workers = args.num_workers
     temp_dir = args.temp_dir
     para_method = args.para_method
     dicom_reader_backend = args.dicom_reader_backend
 
+    # sql_config = {'database':
+    #               "mydb",
+    #               'username':
+    #               "alatar",
+    #               'password':
+    #               "123qweasd",
+    #               'host':
+    #               "localhost",
+    #               'port':
+    #               5432,
+    #               'table_name':
+    #               "test_deploy"}
+    
+    # num_workers = 4
+    # input_folder = "/home/alatar/miacag/data/angio/sample_data2"
+    # temp_dir = "/home/alatar/DicomDatabase/temp_dir"
+    # para_method = "concurrent_futures"
+    # dicom_reader_backend = "pydicom"
     preDcmLoader = PreDcmLoader(
         input_folder, temp_dir, sql_config=sql_config,
         dicom_reader_backend=dicom_reader_backend,
