@@ -82,6 +82,20 @@ torchrun --nproc_per_node=1 \
 --table_name_input $table_name
 
 
+python /deploy/DicomAnnotation/annotate.py \
+--database $database \
+--username $username \
+--host $host \
+--table_name $table_name \
+--schema_name $schema_name \
+--path_dataset $dataset_folder \
+--dicom_reader_backend "sitk" \
+--sql_query "SELECT * FROM ?schema_name.?table_name" \
+--label_name_1 "labels" \
+--label_name_2 "labels_transformed" \
+--prediction_name "predictions" \
+--confidence_name "confidences" \
+--password $password
 
 # torchrun --nproc_per_node=1 \
 # --nnodes=1 \

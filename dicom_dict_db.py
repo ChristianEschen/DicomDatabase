@@ -142,7 +142,9 @@ def get_meta_dicom():
             "ffr_proc_13_midt_lcx_transformed_confidences": 'varchar(255)',
             "ffr_proc_14_om2_transformed_confidences": 'varchar(255)',
             "ffr_proc_15_dist_lcx_transformed_confidences": 'varchar(255)',
-            "ffr_proc_16_pla_rca_transformed_confidences": 'varchar(255)'
+            "ffr_proc_16_pla_rca_transformed_confidences": 'varchar(255)',
+            "kommentar": 'varchar(255)',
+            "text_raw": 'varcahr(225'
                   
             
             
