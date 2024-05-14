@@ -5,12 +5,15 @@ from shutil import copyfile
 import shutil
 import pydicom
 from pydicom.errors import InvalidDicomError
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 #from test_for_monai_transformable import get_transform, test_transform_of_path
 from monai.transforms import Compose, LoadImaged, EnsureChannelFirstD, Resized, DeleteItemsd, SpatialPadd, RepeatChanneld, ScaleIntensityd, NormalizeIntensityd, EnsureTyped, ToDeviced, RandSpatialCropd, ConcatItemsd, Identityd
 import os
 import numpy as np
-
+import time
+import shelve
+import csv
+import pandas as pd
 def is_dicom_file(filepath):
     try:
         # Attempt to read the file with pydicom, only the metadata
@@ -45,34 +48,82 @@ class BaseDcmLoader:
   
 
 
+    def write_cache_csv_list_file(self, filenames_csv_path, filenames):
+        df = pd.DataFrame(filenames)
+        df.to_csv(filenames_csv_path, header=False, index=False)
+
+    def read_csv_if_exists(self, csv_path):
+        data = pd.read_csv(csv_path, header=None, index_col=False)
+        return data.iloc[:, 0].tolist()
+
 
     def get_recursive_files(self, input_path):
+        filenames_can_list = Path(os.path.join(self.temp_dir, "filenames_can_list.csv"))
+        filenames_dicom_list = Path(os.path.join(self.temp_dir, "filenames_dicom_list.csv"))
+        filenames_monai_list = Path(os.path.join(self.temp_dir, "filenames_monai_list.csv"))
+
+
+
+        start = time.time()
         filenames_can = []
         path = Path(input_path)
-        exts = ['.DCM', '.SR', '.dcm', '.sr', ]  # the tuple of file exts
-        for p in path.rglob("*"):
-            if os.path.isdir(str(p)) is False:
-                
-                filenames_can.append(p)
-        print('nr files that are candidates', len(filenames_can))
+        if filenames_can_list.exists():
+            print('filenaes candiate files already exists')
+            filenames_can = self.read_csv_if_exists(filenames_can_list)
+        else:
+            print('list of candidates does not exists, scanning...')
+            for p in path.rglob("*"):
+                if os.path.isdir(str(p)) is False:
+                    
+                    filenames_can.append(p)
+        self.write_cache_csv_list_file(filenames_can_list, filenames_can)
 
+
+        print('nr files that are candidates', len(filenames_can))
+        stop = time.time()
+        print('time elapsed for scanning files in folder that are not directories', stop-start)
+        start = time.time()
         filenames = []
-        with ThreadPoolExecutor() as executor:
-            results = executor.map(is_dicom_file, filenames_can)
-            for is_dicom, filepath in results:
-                if is_dicom:
-                    
-                    filenames.append(filepath)
+        if filenames_dicom_list.exists():
+            print('list of dicom files exists, continue!')
+
+            filenames = self.read_csv_if_exists(filenames_dicom_list)
+
+        else:
+            print('list of dicom files does not exists, processing...')
+
+            with ProcessPoolExecutor() as executor:
+                results = executor.map(is_dicom_file, filenames_can)
+                for is_dicom, filepath in results:
+                    if is_dicom:
+                        filenames.append(filepath)
+        self.write_cache_csv_list_file(filenames_dicom_list, filenames)
         print('nr files that can be loaded with pydicom:', len(filenames))
+        stop = time.time()
+        print('time elapsed for pydicom reader:', stop-start)
+        start = time.time()
+
+
+        # try without test monai trainsformable
         filenames_transformable = []
-        with ThreadPoolExecutor() as executor:
-            results = executor.map(self.test_transform_of_path, filenames)
-            for is_transformable, filepath in results:
-                if is_transformable:
-                    
-                    filenames_transformable.append(filepath)
+        if filenames_monai_list.exists():
+            print('transformable list already exists')
+            filenames_transformable = self.read_csv_if_exists(filenames_monai_list)
+        else:
+            print('list of monai transformable files does not exists, processing...')
+
+            with ProcessPoolExecutor() as executor:
+          #  with ThreadPoolExecutor() as executor:
+
+                results = executor.map(self.test_transform_of_path, filenames)
+                for is_transformable, filepath in results:
+                    if is_transformable:
+                        filenames_transformable.append(filepath)
+        self.write_cache_csv_list_file(filenames_monai_list, filenames_transformable)
 
         print('nr files that are transformables:', len(filenames_transformable))
+        stop = time.time()
+        print('time elapsed for monai transformable:', stop-start)
 
         return filenames_transformable
 

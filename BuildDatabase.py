@@ -14,6 +14,7 @@ from populateDatabase import populateDB
 from dicom_dict_db import get_meta_dicom
 import pydicom
 from monai.transforms import Compose, LoadImaged, EnsureChannelFirstD, Resized, DeleteItemsd, SpatialPadd, RepeatChanneld, ScaleIntensityd, NormalizeIntensityd, EnsureTyped, ToDeviced, RandSpatialCropd, ConcatItemsd, Identityd
+from pathlib import Path
 
 parser = argparse.ArgumentParser(
     description='Define inputs for building database.')
@@ -82,10 +83,11 @@ class PreDcmLoader(BaseDcmLoader):
 
     def get_transform(self):
         train_transforms = [
-            LoadImaged(keys=["DcmPathFlatten"]),
+            LoadImaged(keys=["DcmPathFlatten"], reader="PydicomReader")
+            ,
             EnsureChannelFirstD(keys=["DcmPathFlatten"]),
             Resized(keys=["DcmPathFlatten"], spatial_size=(
-                    224, 224, -1)),
+                    224, 224, 32)),
             SpatialPadd(keys=["DcmPathFlatten"],
                         spatial_size=[224, 224, 32]),
             RepeatChanneld(keys=["DcmPathFlatten"], repeats=3),
@@ -94,13 +96,9 @@ class PreDcmLoader(BaseDcmLoader):
                                 subtrahend=(0.45, 0.45, 0.45),
                                 divisor=(0.225, 0.225, 0.225),
                                 channel_wise=True),
-            EnsureTyped(keys=["DcmPathFlatten"], data_type="tensor"),
-            ToDeviced(keys=["DcmPathFlatten"], device="cpu"),
             RandSpatialCropd(keys=["DcmPathFlatten"],
                             roi_size=[224, 224, 32],
-                random_size=False),
-            ConcatItemsd(keys=["DcmPathFlatten"], name='inputs'),
-            Identityd(keys=["DcmPathFlatten"]) ]
+                random_size=False)]
         train_transforms = Compose(train_transforms)
         print('train_transforms:', train_transforms)
         return train_transforms
@@ -119,6 +117,8 @@ class PreDcmLoader(BaseDcmLoader):
         return batches
 
     def writeFileNames(self, input_files, csvfile_path):
+       # print('input files', input_files)
+       # print('csv file path', csvfile_path)
         batches = self.split_csv_files(input_files, self.num_workers)
         c = 0
         self.mkFolder(csvfile_path)
@@ -135,7 +135,7 @@ class PreDcmLoader(BaseDcmLoader):
 
     def create_filenames_in_batches(self, input_folder, csv_folder):
         self.input_files = self.get_recursive_files(input_folder)
-        self.input_files = [str(i.absolute()) for i in self.input_files]
+        self.input_files = [str(Path(i).absolute()) for i in self.input_files]
         self.input_files = [
             i for i in self.input_files if os.path.isdir(i) is False]
         print('nr files:', len(self.input_files))
@@ -270,7 +270,7 @@ if __name__ == '__main__':
                            )
     populater(df)
 
-    rmtree(temp_dir)
+   # rmtree(temp_dir)
     print('done buiding database')
     end = time.time()
     print('time elapsed:', end - start_time)
